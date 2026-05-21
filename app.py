@@ -3,10 +3,28 @@ import tempfile
 
 from utils.pdf_extractor import extract_text_from_pdf
 from utils.ner_engine import extract_entities
+from utils.spacy_engine import extract_entities_spacy
 
 
-# Streamlit page title
+# Page title
 st.title("📄 AI-Powered PDF Entity Extractor")
+
+
+# ---------------- SIDEBAR ---------------- #
+
+st.sidebar.title("⚙ Filters & Settings")
+
+# Model selection
+model_choice = st.sidebar.selectbox(
+    "Choose NER Model",
+    ["BERT", "spaCy"]
+)
+
+# Entity filters
+show_per = st.sidebar.checkbox("PERSON", value=True)
+show_org = st.sidebar.checkbox("ORG", value=True)
+show_loc = st.sidebar.checkbox("LOC", value=True)
+show_date = st.sidebar.checkbox("DATE", value=True)
 
 
 # Upload PDF
@@ -28,10 +46,16 @@ if uploaded_file is not None:
     # Extract text
     extracted_text = extract_text_from_pdf(temp_path)
 
-    # Extract entities
-    entities = extract_entities(extracted_text)
+    # Select model
+    if model_choice == "BERT":
 
-    # Success message
+        entities = extract_entities(extracted_text)
+
+    else:
+
+        entities = extract_entities_spacy(extracted_text)
+
+    # Success
     st.success("PDF processed successfully!")
 
     # Show extracted text
@@ -43,19 +67,43 @@ if uploaded_file is not None:
         height=250
     )
 
-    # Show entities
+    # Entity section
     st.subheader("🎯 Extracted Entities")
 
-    # Color mapping
+    # Colors
     colors = {
         "PER": "#FF4B4B",
+        "PERSON": "#FF4B4B",
+
         "ORG": "#1E90FF",
+
         "LOC": "#32CD32",
+        "GPE": "#32CD32",
+
         "DATE": "#FFA500"
     }
 
-    # Display highlighted entities
+    # Filter entities
+    filtered_entities = []
+
     for entity in entities:
+
+        label = entity["label"]
+
+        if label in ["PER", "PERSON"] and show_per:
+            filtered_entities.append(entity)
+
+        elif label == "ORG" and show_org:
+            filtered_entities.append(entity)
+
+        elif label in ["LOC", "GPE"] and show_loc:
+            filtered_entities.append(entity)
+
+        elif label == "DATE" and show_date:
+            filtered_entities.append(entity)
+
+    # Display entities
+    for entity in filtered_entities:
 
         label = entity["label"]
         word = entity["entity"]
