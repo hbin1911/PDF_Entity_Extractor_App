@@ -1,5 +1,6 @@
 import streamlit as st
 import tempfile
+import pandas as pd
 
 from utils.pdf_extractor import extract_text_from_pdf
 from utils.ner_engine import extract_entities
@@ -102,7 +103,7 @@ if uploaded_file is not None:
         elif label == "DATE" and show_date:
             filtered_entities.append(entity)
 
-    # Display entities
+        # Display entities
     for entity in filtered_entities:
 
         label = entity["label"]
@@ -125,3 +126,19 @@ if uploaded_file is not None:
             """,
             unsafe_allow_html=True
         )
+
+    # ---------------- CSV EXPORT ---------------- #
+
+    if filtered_entities:
+
+        # Convert entities to DataFrame
+        df = pd.DataFrame(filtered_entities)
+
+        # CSV download button
+        st.download_button(
+            label="⬇ Download Entities as CSV",
+            data=df.to_csv(index=False),
+            file_name="entities_output.csv",
+            mime="text/csv"
+        )
+
