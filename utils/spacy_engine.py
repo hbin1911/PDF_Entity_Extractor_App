@@ -1,7 +1,12 @@
 import spacy
 
-# Load spaCy model
-nlp = spacy.load("en_core_web_sm")
+try:
+    nlp = spacy.load("en_core_web_sm")
+
+except Exception:
+    raise Exception(
+        "spaCy model 'en_core_web_sm' is not installed."
+    )
 
 
 def extract_entities_spacy(text):
