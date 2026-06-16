@@ -1,13 +1,18 @@
 import streamlit as st
 import tempfile
 import pandas as pd
+import torch
+import time
+
+from openpyxl.styles import Font, Border, Side, Alignment
 
 from utils.pdf_extractor import extract_text_from_pdf
 from utils.ner_engine import extract_entities
 from utils.spacy_engine import extract_entities_spacy
 
 
-# Page title
+# ---------------- PAGE TITLE ---------------- #
+
 st.title("📄 AI-Powered PDF Entity Extractor")
 
 
@@ -21,6 +26,34 @@ model_choice = st.sidebar.selectbox(
     ["BERT", "spaCy"]
 )
 
+# Device selection
+device_choice = st.sidebar.radio(
+    "Select Device",
+    ["CPU", "GPU"]
+)
+
+# Comparison mode
+compare_mode = st.sidebar.checkbox(
+    "Compare CPU vs GPU"
+)
+
+# GPU availability check
+if device_choice == "GPU":
+
+    if torch.cuda.is_available():
+
+        st.sidebar.success(
+            f"GPU Detected: {torch.cuda.get_device_name(0)}"
+        )
+
+    else:
+
+        st.sidebar.warning(
+            "GPU not detected. Running on CPU."
+        )
+
+        device_choice = "CPU"
+
 # Entity filters
 show_per = st.sidebar.checkbox("PERSON", value=True)
 show_org = st.sidebar.checkbox("ORG", value=True)
@@ -28,38 +61,149 @@ show_loc = st.sidebar.checkbox("LOC", value=True)
 show_date = st.sidebar.checkbox("DATE", value=True)
 
 
-# Upload PDF
+# ---------------- FILE UPLOAD ---------------- #
+
 uploaded_file = st.file_uploader(
     "Upload a PDF file",
     type=["pdf"]
 )
 
 
+# ---------------- MAIN PROCESSING ---------------- #
+
 if uploaded_file is not None:
 
-    # Save uploaded file temporarily
+    # Save uploaded PDF temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
 
         temp_file.write(uploaded_file.read())
 
         temp_path = temp_file.name
 
-    # Extract text
+    # Extract text from PDF
     extracted_text = extract_text_from_pdf(temp_path)
 
-    # Select model
-    if model_choice == "BERT":
+    start_time = time.time()
 
-        entities = extract_entities(extracted_text)
+    with st.spinner("Loading model and extracting entities..."):
 
-    else:
+        # Select NER model
+        if model_choice == "BERT":
 
-        entities = extract_entities_spacy(extracted_text)
+            entities = extract_entities(
+                extracted_text,
+                device_choice
+            )
 
-    # Success
+        else:
+
+            entities = extract_entities_spacy(extracted_text)
+
+        end_time = time.time()
+
+        inference_time = round(
+            end_time - start_time,
+            2
+        )
+
+    
+
+    # ---------------- COMPARISON PANEL ---------------- #
+    if compare_mode and model_choice == "spaCy":
+
+        st.warning(
+            "⚠ spaCy model currently does not support GPU benchmarking in this application. CPU vs GPU comparison is available only for the BERT model."
+        )
+
+    comparison_results = []
+
+    if compare_mode and model_choice == "BERT":
+
+        # CPU Benchmark
+        cpu_start = time.time()
+
+        extract_entities(
+            extracted_text,
+            "CPU"
+        )
+
+        cpu_end = time.time()
+
+        cpu_time = round(
+            cpu_end - cpu_start,
+            2
+        )
+
+        comparison_results.append(
+            {
+                "Device": "CPU",
+                "Inference Time (sec)": cpu_time
+            }
+        )
+
+        # GPU Benchmark
+        if torch.cuda.is_available():
+
+            gpu_start = time.time()
+
+            extract_entities(
+                extracted_text,
+                "GPU"
+            )
+
+            gpu_end = time.time()
+
+            gpu_time = round(
+                gpu_end - gpu_start,
+                2
+            )
+
+            comparison_results.append(
+                {
+                    "Device": "GPU",
+                    "Inference Time (sec)": gpu_time
+                }
+            )
+
+        else:
+
+            comparison_results.append(
+                {
+                    "Device": "GPU",
+                    "Inference Time (sec)": "Not Available"
+                }
+            )
+
+    # Success message
     st.success("PDF processed successfully!")
+    st.metric(
+        "Inference Time",
+        f"{inference_time} sec"
+    )
+    st.caption(
+        f"Device Used: {device_choice}"
+    )
 
-    # Show extracted text
+
+    # ---------------- COMPARISON TABLE ---------------- #
+    
+
+    if compare_mode and comparison_results:
+
+        st.subheader(
+            "⚡ CPU vs GPU Comparison"
+        )
+
+        comparison_df = pd.DataFrame(
+            comparison_results
+        )
+
+        st.table(
+            comparison_df
+        )
+
+    # ---------------- TEXT PREVIEW ---------------- #
+
     st.subheader("📜 Extracted Text Preview")
 
     st.text_area(
@@ -68,23 +212,8 @@ if uploaded_file is not None:
         height=250
     )
 
-    # Entity section
-    st.subheader("🎯 Extracted Entities")
+    # ---------------- ENTITY FILTERING ---------------- #
 
-    # Colors
-    colors = {
-        "PER": "#FF4B4B",
-        "PERSON": "#FF4B4B",
-
-        "ORG": "#1E90FF",
-
-        "LOC": "#32CD32",
-        "GPE": "#32CD32",
-
-        "DATE": "#FFA500"
-    }
-
-    # Filter entities
     filtered_entities = []
 
     for entity in entities:
@@ -103,42 +232,84 @@ if uploaded_file is not None:
         elif label == "DATE" and show_date:
             filtered_entities.append(entity)
 
-        # Display entities
-    for entity in filtered_entities:
+    # ---------------- ENTITY TABLE ---------------- #
 
-        label = entity["label"]
-        word = entity["entity"]
-
-        color = colors.get(label, "#808080")
-
-        st.markdown(
-            f"""
-            <span style="
-                background-color:{color};
-                padding:6px;
-                border-radius:6px;
-                color:white;
-                margin-right:5px;
-                display:inline-block;
-            ">
-                {word} ({label})
-            </span>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # ---------------- CSV EXPORT ---------------- #
+    st.subheader("📋 Extracted Entities Table")
 
     if filtered_entities:
 
-        # Convert entities to DataFrame
+        # Convert to DataFrame
         df = pd.DataFrame(filtered_entities)
 
-        # CSV download button
+        # Rename columns
+        df.columns = ["Entity", "Label"]
+
+        # Convert values to string
+        df = df.astype(str)
+
+        # Display Streamlit table
+        st.dataframe(
+            df,
+            use_container_width=True
+        )
+
+        # ---------------- CSV EXPORT ---------------- #
+
         st.download_button(
-            label="⬇ Download Entities as CSV",
+            label="⬇ Download as CSV",
             data=df.to_csv(index=False),
             file_name="entities_output.csv",
             mime="text/csv"
         )
 
+        # ---------------- EXCEL EXPORT ---------------- #
+
+        excel_file = "entities_output.xlsx"
+
+        with pd.ExcelWriter(excel_file, engine="openpyxl") as writer:
+
+            df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Entities"
+            )
+
+            worksheet = writer.sheets["Entities"]
+
+            worksheet.column_dimensions["A"].width = 35
+            worksheet.column_dimensions["B"].width = 20
+
+            thin_border = Border(
+                left=Side(style="thin"),
+                right=Side(style="thin"),
+                top=Side(style="thin"),
+                bottom=Side(style="thin")
+            )
+
+            for row in worksheet.iter_rows():
+
+                for cell in row:
+
+                    cell.border = thin_border
+
+                    cell.alignment = Alignment(
+                        horizontal="center",
+                        vertical="center"
+                    )
+
+            for cell in worksheet[1]:
+
+                cell.font = Font(bold=True)
+
+        with open(excel_file, "rb") as file:
+
+            st.download_button(
+                label="⬇ Download as Excel",
+                data=file,
+                file_name="entities_output.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+    else:
+
+        st.warning("No entities found for selected filters.")

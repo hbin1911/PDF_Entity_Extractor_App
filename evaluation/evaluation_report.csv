@@ -1,0 +1,5 @@
+Entity Type,Precision,Recall,F1 Score
+PERSON,1.0,1.0,1.0
+ORG,1.0,1.0,1.0
+LOC,1.0,1.0,1.0
+DATE,1.0,1.0,1.0

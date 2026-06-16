@@ -1,0 +1,25 @@
+﻿PDF,Entity,Label
+pdf1,John Carter,PERSON
+pdf1,Microsoft,ORG
+pdf1,Seattle,LOC
+pdf2,Alice Smith,PERSON
+pdf2,Google,ORG
+pdf2,15-09-2024,DATE
+pdf3,Stanford University,ORG
+pdf3,California,LOC
+pdf4,Elon Musk,PERSON
+pdf4,New York,LOC
+pdf4,10-01-2025,DATE
+pdf5,Sundar Pichai,PERSON
+pdf5,Google,ORG
+pdf6,Amazon,ORG
+pdf6,London,LOC
+pdf7,Mark Zuckerberg,PERSON
+pdf7,Meta,ORG
+pdf8,Mumbai,LOC
+pdf8,20-03-2025,DATE
+pdf9,Tim Cook,PERSON
+pdf9,Apple,ORG
+pdf10,Satya Nadella,PERSON
+pdf10,Bengaluru,LOC
+pdf10,05-11-2024,DATE
